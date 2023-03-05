@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"github.com/Caelan-Botha/helm/ui"
 	"io"
 	"log"
 	"strings"
@@ -95,14 +96,26 @@ func newRoute(mainCommandFunc CommandFunc, subCommandFuncsMap SubCommandFuncsMap
 // ? ========================================================================================================================================================
 
 type Helm struct {
-	in  io.Reader
-	out io.Writer
+	in   io.Reader
+	out  io.Writer
+	term *ui.UI
 
 	routes map[string]Route
 
 	currentCmd *Command
 
 	quitCh chan struct{}
+}
+
+func NewHelmUI() (*Helm, *ui.UI) {
+	term := ui.NewUI()
+	return &Helm{
+		in:     term.Reader,
+		out:    term.Writer,
+		term:   term,
+		routes: make(map[string]Route),
+		quitCh: make(chan struct{}),
+	}, term
 }
 
 func NewHelm(in io.Reader, out io.Writer) *Helm {
