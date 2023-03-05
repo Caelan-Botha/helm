@@ -1,8 +1,8 @@
 package main
 
 import (
-	"helm/helm"
-	"helm/ui"
+	"github.com/Caelan-Botha/helm/helm"
+	"github.com/Caelan-Botha/helm/ui"
 )
 
 func main() {
