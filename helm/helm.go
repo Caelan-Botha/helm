@@ -95,6 +95,17 @@ func (t *Helm) Start() {
 	<-t.quitCh
 }
 
+func (t *Helm) Quit() {
+	close(t.quitCh)
+	var empty Helm
+	t.quitCh = empty.quitCh
+	t.term = empty.term
+	t.in = empty.in
+	t.out = empty.out
+	t.routes = empty.routes
+	t.currentCmd = empty.currentCmd
+}
+
 // ? routing
 // ? ========================================================================================================================================================
 
