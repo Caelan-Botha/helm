@@ -12,29 +12,17 @@ import (
 )
 
 // CommandFunc
-// types for grouping commands and their sub-commands
-// the main Command will be a Command executor that will branch to the sub-commands if needed.
-// this is done by registering the pair of commands/sub-commands as a Route on the schell
-// the main Command calls sub-commands if needed
-type CommandFunc func(helm *Helm, subCommands SubCommandFuncsMap) error
-type SubCommandFuncsMap map[string]CommandFunc
+type CommandFunc func(helm *Helm) error
+type SubCommands map[string]Route
 
 // Route represents a Command and its related sub commands
-// mainCommandFunc: is the function that is run when the Command is called, this should contain the branching logic for sub commands eg. a switch statement
 type Route struct {
-	mainCommandFunc    CommandFunc
-	subCommandFuncsMap map[string]CommandFunc
+	mainCommand CommandFunc
+	subCommands map[string]Route
 }
 
-func (r Route) SubCommands() map[string]CommandFunc {
-	return r.subCommandFuncsMap
-}
-
-func newRoute(mainCommandFunc CommandFunc, subCommandFuncsMap SubCommandFuncsMap) Route {
-	return Route{
-		mainCommandFunc:    mainCommandFunc,
-		subCommandFuncsMap: subCommandFuncsMap,
-	}
+func (r Route) SubCommands() map[string]Route {
+	return r.subCommands
 }
 
 // ? Helm
@@ -72,71 +60,57 @@ func NewHelm(in io.Reader, out io.Writer) *Helm {
 	}
 }
 
-func (t *Helm) AddRoute(name string, mainCommandFunc CommandFunc, subCommandFuncsMap SubCommandFuncsMap) error {
-	if _, exists := t.routes[name]; exists {
+//func (h *Helm) AddRoute(name string, mainCommandFunc CommandFunc, subCommandFuncsMap SubCommands) error {
+//	if _, exists := h.routes[name]; exists {
+//		return fmt.Errorf("a Route with name: %s already exists", name)
+//	}
+//
+//	h.routes[name] = newRoute(mainCommandFunc, subCommandFuncsMap)
+//
+//	return nil
+//}
+
+func (h *Helm) RegisterRoute(name string, route Route) error {
+	if _, exists := h.routes[name]; exists {
 		return fmt.Errorf("a Route with name: %s already exists", name)
 	}
 
-	t.routes[name] = newRoute(mainCommandFunc, subCommandFuncsMap)
+	h.routes[name] = route
 
 	return nil
 }
 
-func (t *Helm) CurrentCommand() Command {
-	if t.currentCmd.name != "" {
-		return t.currentCmd
+func (h *Helm) CurrentCommand() Command {
+	if h.currentCmd.name != "" {
+		return h.currentCmd
 	}
 	return ZeroCommand()
 }
 
-func (t *Helm) Start() {
-	go t.inputLoop()
+func (h *Helm) Start() {
+	go h.inputLoop()
 
-	<-t.quitCh
+	<-h.quitCh
 }
 
-func (t *Helm) Quit() {
-	close(t.quitCh)
+func (h *Helm) Quit() {
+	close(h.quitCh)
 	var empty Helm
-	t.quitCh = empty.quitCh
-	t.term = empty.term
-	t.in = empty.in
-	t.out = empty.out
-	t.routes = empty.routes
-	t.currentCmd = empty.currentCmd
-}
-
-// ? routing
-// ? ========================================================================================================================================================
-
-func (t *Helm) GetRoute(name string) (Route, error) {
-	if _, exists := t.routes[name]; !exists {
-		return Route{}, errors.New("route doesnt exist")
-	}
-	return t.routes[name], nil
-}
-
-// Route the Command to the appropriate handler
-func (t *Helm) routeCommand() {
-	if _, exists := t.routes[t.currentCmd.name]; !exists {
-		// Command isn't registered
-		t.OutputError(fmt.Errorf("unknow command: %s", t.currentCmd.name))
-		return
-	}
-	// execute Command main func which will handle any sub commands
-	err := t.routes[t.currentCmd.name].mainCommandFunc(t, t.routes[t.currentCmd.name].subCommandFuncsMap)
-	if err != nil {
-		t.OutputError(err)
-	}
+	h.quitCh = empty.quitCh
+	h.term = empty.term
+	h.in = empty.in
+	h.out = empty.out
+	h.routes = empty.routes
+	h.currentCmd = empty.currentCmd
 }
 
 // ? input
 // ? ========================================================================================================================================================
 
-func (t *Helm) inputLoop() {
+func (h *Helm) inputLoop() {
 	for {
 		time.Sleep(1 * time.Millisecond)
-		reader := bufio.NewReader(t.in)
+		reader := bufio.NewReader(h.in)
 		line, err := reader.ReadString('\n')
 		if err != nil && errors.Is(err, io.EOF) {
 			time.Sleep(99 * time.Millisecond)
@@ -145,19 +119,52 @@ func (t *Helm) inputLoop() {
 		if err != nil {
 			log.Fatal("failed to read from input loop", err)
 		}
-		t.currentCmd, err = newCommand([]byte(line))
-		t.routeCommand()
+		h.currentCmd, err = newCommand([]byte(line), h.routes)
+		if err != nil {
+			h.OutputError(err)
+			continue
+		}
+		//h.routeCommand()
+		h.routeCommand()
 	}
+}
+
+func (h *Helm) routeCommand() {
+	command := h.currentCmd
+	route, exists := h.routes[command.name]
+	if !exists {
+		// Command isn't registered
+		h.OutputError(fmt.Errorf("unknown command: %s", command.name))
+		return
+	}
+	h.recurs(command, route)
+}
+
+func (h *Helm) recurs(command Command, route Route) {
+	fmt.Println("recursing: ", command.name, command.subCommand, route)
+	if command.subCommand == nil {
+		err := route.mainCommand(h)
+		if err != nil {
+			h.OutputError(err)
+			return
+		}
+		return
+	}
+	if _, exists := route.subCommands[command.subCommand.name]; !exists {
+		h.OutputError(errors.New("Cannot find route for sub-command: " + command.subCommand.name))
+		return
+	}
+	h.recurs(*command.subCommand, route.subCommands[command.subCommand.name])
 }
 
 // ? output
 // ? ========================================================================================================================================================
 
-func (t *Helm) OutputString(o string) {
+func (h *Helm) OutputString(o string) {
 	var sb strings.Builder
 	sb.WriteString(o)
 	sb.WriteRune('\n')
-	_, err := t.out.Write([]byte(sb.String()))
+	_, err := h.out.Write([]byte(sb.String()))
 	if err != nil {
 		log.Fatalf("failed to write to out: %v", err)
 	}
@@ -166,11 +173,11 @@ func (t *Helm) OutputString(o string) {
 // ? error
 // ? ========================================================================================================================================================
 
-func (t *Helm) OutputError(e error) {
+func (h *Helm) OutputError(e error) {
 	var sb strings.Builder
 	sb.WriteString("ERROR: ")
 	sb.WriteString(e.Error())
-	_, err := t.out.Write([]byte(sb.String()))
+	_, err := h.out.Write([]byte(sb.String()))
 	if err != nil {
 		log.Fatalf("failed to write to out: %v", err)
 	}
