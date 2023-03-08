@@ -17,8 +17,8 @@ func StartExample() {
 	//h := NewHelm(os.Stdin, os.Stdout)
 	h, u := NewHelmUI()
 	h.RegisterRoute("hello", Route{
-		mainCommand: HelloMainFunc,
-		subCommands: HelloSubCommands(),
+		MainCommand: HelloMainFunc,
+		SubCommands: HelloSubCommands(),
 	})
 
 	go h.Start()
@@ -58,33 +58,33 @@ func HelloMainFunc(h *Helm) error {
 func HelloSubCommands() map[string]Route {
 	return map[string]Route{
 		"one": {
-			mainCommand: func(helm *Helm) error {
+			MainCommand: func(helm *Helm) error {
 				helm.OutputString("running sub-command: one")
 				return nil
 			},
-			subCommands: map[string]Route{
+			SubCommands: map[string]Route{
 				"uno": {
-					mainCommand: func(helm *Helm) error {
+					MainCommand: func(helm *Helm) error {
 						helm.OutputString("running sub-sub-command: uno")
 						return nil
 					},
-					subCommands: nil,
+					SubCommands: nil,
 				},
 			},
 		},
 		"two": {
-			mainCommand: func(helm *Helm) error {
+			MainCommand: func(helm *Helm) error {
 				helm.OutputString("running sub-command: two")
 				return nil
 			},
-			subCommands: nil,
+			SubCommands: nil,
 		},
 		"three": {
-			mainCommand: func(helm *Helm) error {
+			MainCommand: func(helm *Helm) error {
 				helm.OutputString("running sub-command: three")
 				return nil
 			},
-			subCommands: nil,
+			SubCommands: nil,
 		},
 	}
 }
@@ -160,11 +160,11 @@ func HelloSubCommands() map[string]Route {
 //		return nil
 //	}
 //
-//	m["gunga"] = func(t *Helm, subCommands SubCommands) error {
+//	m["gunga"] = func(t *Helm, SubCommands SubCommands) error {
 //		fmt.Println("saying gunga!")
 //		return nil
 //	}
-//	m["ginga"] = func(t *Helm, subCommands SubCommands) error {
+//	m["ginga"] = func(t *Helm, SubCommands SubCommands) error {
 //		fmt.Println("saying GINGAAAA")
 //		return nil
 //	}

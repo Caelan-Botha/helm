@@ -73,10 +73,10 @@ func newCommand(raw []byte, routes map[string]Route) (Command, error) {
 			}
 		default:
 			// check for matching sub command
-			if routes[command.name].subCommands != nil {
-				if _, exists := routes[command.name].subCommands[word]; exists {
+			if routes[command.name].SubCommands != nil {
+				if _, exists := routes[command.name].SubCommands[word]; exists {
 					rest := strings.Join(commandExcludingName[i:], " ")
-					sub, err := newCommand([]byte(rest), routes[command.name].subCommands)
+					sub, err := newCommand([]byte(rest), routes[command.name].SubCommands)
 					if err != nil {
 						return ZeroCommand(), fmt.Errorf("failed to build sub command: %w", err)
 					}

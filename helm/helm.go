@@ -17,12 +17,8 @@ type SubCommands map[string]Route
 
 // Route represents a Command and its related sub commands
 type Route struct {
-	mainCommand CommandFunc
-	subCommands map[string]Route
-}
-
-func (r Route) SubCommands() map[string]Route {
-	return r.subCommands
+	MainCommand CommandFunc
+	SubCommands map[string]Route
 }
 
 // ? Helm
@@ -143,18 +139,18 @@ func (h *Helm) routeCommand() {
 func (h *Helm) recurs(command Command, route Route) {
 	fmt.Println("recursing: ", command.name, command.subCommand, route)
 	if command.subCommand == nil {
-		err := route.mainCommand(h)
+		err := route.MainCommand(h)
 		if err != nil {
 			h.OutputError(err)
 			return
 		}
 		return
 	}
-	if _, exists := route.subCommands[command.subCommand.name]; !exists {
+	if _, exists := route.SubCommands[command.subCommand.name]; !exists {
 		h.OutputError(errors.New("Cannot find route for sub-command: " + command.subCommand.name))
 		return
 	}
-	h.recurs(*command.subCommand, route.subCommands[command.subCommand.name])
+	h.recurs(*command.subCommand, route.SubCommands[command.subCommand.name])
 }
 
 // ? output
