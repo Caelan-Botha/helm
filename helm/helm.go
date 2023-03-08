@@ -24,6 +24,10 @@ type Route struct {
 // ? Helm
 // ? ========================================================================================================================================================
 
+type Formatter interface {
+	Format(p []byte) ([]byte, error)
+}
+
 type Helm struct {
 	in   io.Reader
 	out  io.Writer
@@ -156,14 +160,39 @@ func (h *Helm) recurs(command Command, route Route) {
 // ? output
 // ? ========================================================================================================================================================
 
-func (h *Helm) OutputString(o string) {
+func (h *Helm) Output(p []byte) error {
+	_, err := h.out.Write(p)
+	if err != nil {
+		return fmt.Errorf("failed to write to out: %w", err)
+	}
+	return nil
+}
+
+func (h *Helm) OutputString(o string) error {
 	var sb strings.Builder
 	sb.WriteString(o)
 	sb.WriteRune('\n')
 	_, err := h.out.Write([]byte(sb.String()))
 	if err != nil {
-		log.Fatalf("failed to write to out: %v", err)
+		return fmt.Errorf("failed to write to out: %w", err)
 	}
+	return nil
+}
+
+func (h *Helm) OutputFormatted(p []byte, formatter Formatter) error {
+	pCpy := make([]byte, len(p))
+	copy(pCpy, p)
+
+	formattedBytes, err := formatter.Format(pCpy)
+	if err != nil {
+		e := h.Output(p)
+		if e != nil {
+			err = fmt.Errorf("%s: %w", err, e)
+		}
+		return err
+	}
+
+	return h.Output(formattedBytes)
 }
 
 // ? error

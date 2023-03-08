@@ -5,10 +5,9 @@ import (
 	"fmt"
 )
 
-type JSONFormatter struct {
-}
+type JSONTestFormatter struct{}
 
-func (jf JSONFormatter) Format(p []byte) ([]byte, error) {
+func (jf JSONTestFormatter) Format(p []byte) ([]byte, error) {
 	m := make(map[string]any)
 
 	err := json.Unmarshal(p, &m)
@@ -16,7 +15,13 @@ func (jf JSONFormatter) Format(p []byte) ([]byte, error) {
 		return p, err
 	}
 
-	fmt.Println(m)
+	out := make([]byte, 0)
 
-	return nil, nil
+	for fieldName, fieldValue := range m {
+		fv := fmt.Sprintf("%v", fieldValue)
+		str := fieldName + " -> " + fv + "!\n"
+		out = append(out, []byte(str)...)
+	}
+
+	return out, nil
 }
